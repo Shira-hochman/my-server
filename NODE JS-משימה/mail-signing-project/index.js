@@ -12,7 +12,18 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors({ origin: 'http://localhost:3000' }));
+// ✅ CORS עבור לוקאלי ו־Render
+const allowedOrigins = [
+  'http://localhost:3000',
+  'https://my-client.onrender.com', // החליפי לכתובת האמיתית של הקליינט
+];
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    callback(new Error('Not allowed by CORS'));
+  }
+}));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -33,8 +44,11 @@ const upload = multer({ storage });
 
 app.post('/upload', upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'לא התקבל קובץ' });
+
   const fileId = path.parse(req.file.filename).name;
-  const shareLink = `http://localhost:3000/sign/${fileId}`;
+  const baseUrl = req.headers.origin || `https://my-client.onrender.com`; // תחליף אם צריך
+  const shareLink = `${baseUrl}/sign/${fileId}`;
+
   res.json({ message: 'הקובץ התקבל', shareLink });
 });
 
@@ -100,21 +114,6 @@ app.get('/file/:fileId', (req, res) => {
   res.sendFile(filePath);
 });
 
-const CLIENT_FOLDER = path.join(__dirname, 'client');
-
-if (fs.existsSync(CLIENT_FOLDER)) {
-  app.use(express.static(CLIENT_FOLDER));
-  
-  app.get('*', function (req, res) {
-    res.sendFile(path.join(CLIENT_FOLDER, 'index.html'));
-  });
-} else {
-  console.warn('⚠️ תיקיית client לא קיימת או ריקה');
-}
-
-
-
-
 app.listen(PORT, () => {
-  console.log(`✅ השרת רץ על http://localhost:${PORT}`);
+  console.log(`✅ השרת רץ על פורט ${PORT}`);
 });
